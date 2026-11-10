@@ -1,0 +1,55 @@
+BYTECRAFTER — INVENTÁRIO MINECRAFT IMPLEMENTADO
+
+Data: 2026-10-19
+
+O que foi implementado
+
+1. O inventário agora usa 36 posições no total, seguindo o modelo Minecraft clássico:
+   - 9 slots de hotbar;
+   - 27 slots de mochila;
+   - pilhas independentes por slot, em vez de somente contadores agregados por item.
+
+2. O modelo de ItemStack foi centralizado em scripts/game/inventory_stack.gd. Ele implementa:
+   - limite padrão de 64 itens por pilha;
+   - itens não empilháveis para ferramentas e armaduras;
+   - mesclagem até o limite da pilha;
+   - clique esquerdo para pegar, colocar, mesclar ou trocar;
+   - clique direito para pegar metade, depositar uma unidade, mesclar uma unidade ou trocar;
+   - Shift-click entre hotbar e mochila;
+   - coleta de pilhas iguais por duplo clique;
+   - pilha carregada pelo cursor;
+   - serialização/deserialização das 36 posições.
+
+3. A interface da mochila foi ajustada para mostrar as quantidades reais de cada slot. A hotbar da tela de mochila é a mesma hotbar usada durante a partida. O arraste entre mochila e hotbar troca ou mescla pilhas reais.
+
+4. O uso de itens foi ligado ao slot selecionado:
+   - botão direito usa o item selecionado;
+   - blocos são colocados consumindo a pilha selecionada;
+   - comida é consumida da pilha selecionada;
+   - shuriken, mesa de craft, props, plantio e colheita usam a pilha real;
+   - ferramentas e armas só influenciam mineração e dano quando estão equipadas na hotbar selecionada.
+
+5. Drops agora entram pelo mesmo sistema de pilhas. IDs numéricos antigos de comida e recursos são normalizados para os nomes atuais durante a migração.
+
+6. Saves antigos continuam sendo lidos. O layout legado é reconstruído para 9 slots de hotbar + 27 slots de mochila. O campo slot_stacks passa a guardar a distribuição real das pilhas.
+
+Referência técnica
+
+A lógica foi adaptada em GDScript a partir dos conceitos de InventoryPlayer, ItemStack, Container e GuiContainer presentes nas referências fornecidas:
+
+- https://github.com/hanijanaty2006/minecraft-decompiled-0.8-alpha.git
+- https://github.com/Marcelektro/MCP-919.git
+
+Não foi feita uma cópia literal de código Java: a implementação foi reescrita e integrada ao modelo de cenas, sinais e saves deste projeto Godot.
+
+Arquivos principais alterados
+
+- scripts/game/inventory_stack.gd
+- scripts/game/bytecrafter.gd
+- test/test_suite.gd
+
+Validação
+
+- O projeto compila em modo headless pelo editor do Godot.
+- A suíte chegou a 233 checks; os checks do inventário, crafting, drag-and-drop, hotbar, consumo e uso de ferramentas passaram.
+- Permanecem dois checks preexistentes relacionados ao retarget de thigh_l dos avatares boy2/girl2: os rigs importados não expõem um osso com esse nome, e o teste legado ainda tenta consultar o índice -1. Isso é independente da migração de inventário.

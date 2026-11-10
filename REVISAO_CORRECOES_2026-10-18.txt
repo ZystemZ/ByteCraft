@@ -1,0 +1,10 @@
+ByteCrafter - revisão de avisos GDScript
+Data: 2026-10-18
+
+Correções aplicadas com base nos avisos reportados no Godot:
+1. autoload/save_store.gd: renomeada a variável local do loop para candidate_version, evitando declaração local confusável com a variável version declarada no bloco pai. A versão efetivamente carregada continua sendo lida de candidate após seleção do arquivo de save.
+2. autoload/tuning_store.gd: substituído o operador ternário que retornava bool ou null por um bloco if explícito. Mantém o mesmo comportamento de validação e evita INCOMPATIBLE_TERNARY.
+3. scripts/manus/browser_bgm_player.gd: conversão explícita para float na comparação do limite de buffer, evitando aviso de divisão inteira. A comparação continua equivalente, sem truncamento silencioso.
+
+Limitação da validação:
+O executável do Godot não estava disponível neste ambiente; portanto, não foi possível executar a importação/análise completa do projeto no motor nem confirmar ausência de outros erros de runtime. O ZIP foi empacotado e a integridade estrutural será verificada separadamente.

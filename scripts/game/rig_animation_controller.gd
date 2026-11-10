@@ -1,0 +1,285 @@
+extends Node
+class_name RigAnimationController
+
+const SOURCE_MODEL := "res://assets/models/players/rigged_player_boy.fbx"
+const CLIPS := {
+	"walk": "res://assets/models/animations/walk.tres",
+	"run": "res://assets/models/animations/run.tres",
+	"jump": "res://assets/models/animations/jump.tres",
+	"mine": "res://assets/models/animations/mine.tres",
+	"attack": "res://assets/models/animations/attack.tres",
+	"death": "res://assets/models/animations/death.tres",
+	"door": "res://assets/models/animations/attack.tres",
+	"reaction": "res://assets/models/animations/attack.tres",
+}
+const EXTERNAL_CLIP_SCENES := {
+	"walk": "res://assets/userpack/animations/Walking (1).fbx",
+	"run": "res://assets/userpack/animations/Running.fbx",
+	"jump": "res://assets/userpack/animations_extra/Jumping Up_FAST.fbx",
+	"mine": "res://assets/userpack/animations/Martelo 2.fbx",
+	"attack": "res://assets/userpack/animations/Standing Melee Attack Horizontal.fbx",
+	"death": "res://assets/userpack/animations/Dying.fbx",
+	"door": "res://assets/userpack/animations_extra/Opening door.fbx",
+	"reaction": "res://assets/userpack/animations/Reaction.fbx",
+	"work": "res://assets/userpack/animations/Standing Melee Attack Downward.fbx",
+	"sleep1": "res://assets/userpack/animations_extra/dormindo.fbx",
+	"sleep2": "res://assets/userpack/animations_extra/dormindo1 Idle.fbx",
+	"sleep3": "res://assets/userpack/animations_extra/Dormindo 2 Idle.fbx",
+	"swim": "res://assets/userpack/animations_extra/Swimming.fbx",
+	"float": "res://assets/userpack/animations_extra/Floating.fbx",
+	"dance1": "res://assets/userpack/animations_extra/Silly Dancing.fbx",
+	"dance2": "res://assets/userpack/animations_extra/Jazz Dancing.fbx",
+	"pickup": "res://assets/userpack/animations_extra/Picking Up.fbx",
+	"zombie_walk": "res://assets/userpack/animations_extra/Zombie Walk.fbx",
+	"zombie_idle": "res://assets/userpack/animations_extra/Zombie Idle.fbx",
+	"zombie_punch": "res://assets/userpack/animations_extra/Zombie Punching.fbx",
+	"et_wheelbarrow": "res://assets/userpack/animations_extra/ete Wheelbarrow Walk.fbx",
+}
+const LOOPING_CLIPS := ["sleep1", "sleep2", "sleep3", "swim", "float", "dance1", "dance2", "zombie_walk", "zombie_idle", "et_wheelbarrow"]
+const LOCOMOTION_STATES := ["idle", "walk", "run", "jump", "swim", "float", "sleep1", "sleep2", "sleep3"]
+const ACTION_STATES := ["mine", "attack", "death", "door", "reaction", "work", "pickup", "dance1", "dance2"]
+const MIXAMO_TO_CC := {
+	"mixamorig_Hips": "pelvis",
+	"mixamorig_Spine": "spine_01",
+	"mixamorig_Spine1": "spine_02",
+	"mixamorig_Spine2": "spine_03",
+	"mixamorig_Neck": "neck_01",
+	"mixamorig_Head": "head",
+	"mixamorig_LeftShoulder": "clavicle_l",
+	"mixamorig_LeftArm": "upperarm_l",
+	"mixamorig_LeftForeArm": "lowerarm_l",
+	"mixamorig_LeftHand": "hand_l",
+	"mixamorig_RightShoulder": "clavicle_r",
+	"mixamorig_RightArm": "upperarm_r",
+	"mixamorig_RightForeArm": "lowerarm_r",
+	"mixamorig_RightHand": "hand_r",
+	"mixamorig_LeftUpLeg": "thigh_l",
+	"mixamorig_LeftLeg": "calf_l",
+	"mixamorig_LeftFoot": "foot_l",
+	"mixamorig_LeftToeBase": "ball_l",
+	"mixamorig_RightUpLeg": "thigh_r",
+	"mixamorig_RightLeg": "calf_r",
+	"mixamorig_RightFoot": "foot_r",
+	"mixamorig_RightToeBase": "ball_r",
+}
+
+var _target_root: Node3D
+var _target_skeleton: Skeleton3D
+var _target_player: AnimationPlayer
+var _source_root: Node3D
+var _source_skeleton: Skeleton3D
+var _source_player: AnimationPlayer
+var _desired_locomotion := "idle"
+var _active_action := ""
+var _current_state := ""
+var _clip_overrides: Dictionary = {}
+var _ready_for_animation := false
+var _retarget_dirty := true
+
+
+func setup(target_root: Node3D, extra_clip_names: Array[String] = []) -> void:
+	_target_root = target_root
+	_target_skeleton = target_root.find_child("Skeleton3D", true, false) as Skeleton3D
+	_target_player = target_root.find_child("AnimationPlayer", true, false) as AnimationPlayer
+	if _target_skeleton == null or _target_player == null:
+		return
+	var is_cc_target := _target_skeleton.find_bone("pelvis") >= 0 and _target_skeleton.find_bone("mixamorig_Hips") < 0
+	if is_cc_target:
+		_build_retarget_source(extra_clip_names)
+	else:
+		_install_clips(_target_player, extra_clip_names)
+	_ready_for_animation = true
+	set_locomotion_state("idle")
+
+
+func _build_retarget_source(extra_clip_names: Array[String]) -> void:
+	var source_scene := load(SOURCE_MODEL) as PackedScene
+	if source_scene == null:
+		return
+	_source_root = source_scene.instantiate() as Node3D
+	_source_root.name = "AnimationRetargetSource"
+	_source_root.visible = false
+	add_child(_source_root)
+	_source_skeleton = _source_root.find_child("Skeleton3D", true, false) as Skeleton3D
+	_source_player = _source_root.find_child("AnimationPlayer", true, false) as AnimationPlayer
+	if _source_skeleton == null or _source_player == null:
+		return
+	_install_clips(_source_player, extra_clip_names)
+
+
+func _install_clips(player: AnimationPlayer, extra_clip_names: Array[String]) -> void:
+	var library := player.get_animation_library("")
+	if library == null:
+		library = AnimationLibrary.new()
+		player.add_animation_library("", library)
+	for clip_name: String in CLIPS:
+		if library.has_animation(clip_name):
+			library.remove_animation(clip_name)
+	for clip_name: String in EXTERNAL_CLIP_SCENES:
+		if library.has_animation(clip_name):
+			library.remove_animation(clip_name)
+	for clip_name: String in CLIPS:
+		if not _ensure_clip(player, clip_name):
+			push_warning("Missing animation clip: " + clip_name)
+	for clip_name: String in EXTERNAL_CLIP_SCENES:
+		if not CLIPS.has(clip_name) and not _ensure_clip(player, clip_name):
+			push_warning("Missing animation clip: " + clip_name)
+	for clip_name: String in extra_clip_names:
+		if not _ensure_clip(player, clip_name):
+			push_warning("Missing animation clip: " + clip_name)
+
+
+func _ensure_clip(player: AnimationPlayer, clip_name: String) -> bool:
+	if player == null:
+		return false
+	var library := player.get_animation_library("")
+	if library == null:
+		library = AnimationLibrary.new()
+		player.add_animation_library("", library)
+	if library.has_animation(clip_name):
+		return true
+	var external_clip: Animation = null
+	var scene_path := str(EXTERNAL_CLIP_SCENES.get(clip_name, ""))
+	if not scene_path.is_empty():
+		external_clip = _load_external_clip(clip_name)
+	var fallback_path := str(CLIPS.get(clip_name, ""))
+	var fallback_clip := load(fallback_path) as Animation if not fallback_path.is_empty() else null
+	if external_clip == null and fallback_clip == null:
+		return false
+	var clip := external_clip if external_clip != null else fallback_clip.duplicate(true) as Animation
+	if clip_name in LOOPING_CLIPS:
+		clip.loop_mode = Animation.LOOP_LINEAR
+	library.add_animation(clip_name, clip)
+	if not player.animation_finished.is_connected(_on_animation_finished):
+		player.animation_finished.connect(_on_animation_finished)
+	return true
+
+
+func _load_external_clip(clip_name: String) -> Animation:
+	var scene_path := str(EXTERNAL_CLIP_SCENES.get(clip_name, ""))
+	if scene_path.is_empty():
+		return null
+	var scene := load(scene_path) as PackedScene
+	if scene == null:
+		return null
+	var root := scene.instantiate()
+	var player := root.find_child("AnimationPlayer", true, false) as AnimationPlayer
+	if player == null:
+		root.free()
+		return null
+	var libraries := player.get_animation_library_list()
+	if libraries.is_empty():
+		root.free()
+		return null
+	var library := player.get_animation_library(libraries[0])
+	var animations := library.get_animation_list()
+	if animations.is_empty():
+		root.free()
+		return null
+	var result := library.get_animation(animations[0]).duplicate(true) as Animation
+	root.free()
+	return result
+
+
+func _process(_delta: float) -> void:
+	if _ready_for_animation and _source_skeleton != null and (_retarget_dirty or (_source_player != null and _source_player.is_playing())):
+		_apply_retarget_overrides()
+		_retarget_dirty = false
+
+
+func set_locomotion_state(state: String) -> void:
+	if not _ready_for_animation:
+		return
+	var normalized := state if state in LOCOMOTION_STATES else "idle"
+	_desired_locomotion = normalized
+	if not _active_action.is_empty():
+		return
+	if normalized == "idle":
+		var idle_clip := str(_clip_overrides.get("idle", "walk"))
+		_play_clip(idle_clip, not _clip_overrides.has("idle"))
+		_current_state = "idle"
+	else:
+		_play_clip(str(_clip_overrides.get(normalized, normalized)), false)
+		_current_state = normalized
+
+
+func set_clip_overrides(overrides: Dictionary) -> void:
+	_clip_overrides = overrides.duplicate()
+	set_locomotion_state(_desired_locomotion)
+
+
+func play_action(action: String) -> void:
+	var clip_name := str(_clip_overrides.get(action, action))
+	var active_player := _source_player if _source_player != null else _target_player
+	if not _ready_for_animation or action not in ACTION_STATES or not _ensure_clip(active_player, clip_name):
+		return
+	if _active_action == action and _is_playing(clip_name):
+		return
+	_active_action = action
+	_current_state = action
+	_play_clip(clip_name, false)
+
+
+func stop_action() -> void:
+	if _active_action.is_empty() or _active_action == "death":
+		return
+	_active_action = ""
+	_current_state = ""
+	var player := _source_player if _source_player != null else _target_player
+	if player != null:
+		player.stop()
+	set_locomotion_state(_desired_locomotion)
+
+
+func _play_clip(clip_name: String, paused: bool) -> void:
+	var player := _source_player if _source_player != null else _target_player
+	if player == null or not _ensure_clip(player, clip_name):
+		return
+	_retarget_dirty = true
+	player.speed_scale = 1.0
+	player.play(clip_name, 0.08)
+	if paused:
+		player.seek(0.0, true)
+		player.pause()
+
+
+func _is_playing(clip_name: String) -> bool:
+	var player := _source_player if _source_player != null else _target_player
+	return player != null and player.is_playing() and player.current_animation == clip_name
+
+
+func _has_animation(clip_name: String) -> bool:
+	var player := _source_player if _source_player != null else _target_player
+	return player != null and player.has_animation(clip_name)
+
+
+func _on_animation_finished(animation_name: StringName) -> void:
+	var finished := str(animation_name)
+	var active_clip := str(_clip_overrides.get(_active_action, _active_action))
+	if finished != active_clip or _active_action == "death":
+		return
+	_active_action = ""
+	set_locomotion_state(_desired_locomotion)
+
+
+func _apply_retarget_overrides() -> void:
+	if _source_skeleton == null or _target_skeleton == null:
+		return
+	for source_bone: String in MIXAMO_TO_CC:
+		var target_bone := str(MIXAMO_TO_CC[source_bone])
+		var source_index := _source_skeleton.find_bone(source_bone)
+		var target_index := _target_skeleton.find_bone(target_bone)
+		if source_index < 0 or target_index < 0:
+			continue
+		var source_delta := _source_skeleton.get_bone_global_rest(source_index).affine_inverse() * _source_skeleton.get_bone_global_pose(source_index)
+		var target_pose := _target_skeleton.get_bone_global_rest(target_index)
+		target_pose.basis = target_pose.basis * source_delta.basis
+		_target_skeleton.set_bone_global_pose_override(target_index, target_pose, 1.0, true)
+
+
+func has_functional_animation() -> bool:
+	return _ready_for_animation and (_source_player != null or _target_player != null)
+
+
+func get_state() -> String:
+	return _active_action if not _active_action.is_empty() else _current_state
