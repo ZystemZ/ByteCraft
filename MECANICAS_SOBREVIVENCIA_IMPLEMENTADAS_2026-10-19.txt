@@ -1,0 +1,47 @@
+BYTECRAFTER — MECÂNICAS DE SOBREVIVÊNCIA IMPLEMENTADAS
+Data: 2026-10-19
+
+REFERÊNCIAS E ABORDAGEM
+As mecânicas foram adaptadas ao modelo de cenas, sinais, inventário e salvamento do ByteCrafter, em GDScript. As referências de comportamento são os projetos decompilados indicados pelo usuário; esta entrega não cola código Java literal.
+
+- https://github.com/hanijanaty2006/minecraft-decompiled-0.8-alpha.git
+- https://github.com/Marcelektro/MCP-919.git
+
+MECÂNICAS
+
+1. Dia e noite
+- Ciclo contínuo com período completo aproximado de 12 minutos, persistido no perfil.
+- Sol e lua percorrem o céu; estrelas aparecem à noite e a camada de nuvens continua animada.
+- Luz ambiente acompanha a fase do dia/noite.
+
+2. Surgimento e comportamento de inimigos
+- Spawn é verificado em intervalos, limitado pelo número máximo ativo e por autoridade do host na sessão de rede.
+- Pontos de surgimento são escolhidos em terreno com espaço livre, a distância segura do jogador, evitando água sempre que possível.
+- Zumbis, ETs, corredores, atiradores e o chefe lunar têm horários e agenda; ETs e chefes recebem dano quando a luz do dia chega. Zumbis ficam inativos de dia e sofrem dano solar gradual.
+- O combate aplica dano de acordo com a arma selecionada, respeita alcance e recarga, derruba loot e concede XP.
+
+3. Receitas e estação de trabalho
+- A grade 3×3 reconhece receitas por padrão exato e valida a estação necessária.
+- Receitas avançadas marcadas para bancada exigem uma mesa de craft próxima (até 3 m).
+- Foram adicionadas receitas de fornalha (8 pedras), alçapão, janela de vidro e cama; o catálogo inclui carvão vegetal.
+- Os controles existentes de mesa e mochila continuam vinculados ao crafting anterior e ao inventário de 36 slots descrito em INVENTARIO_MINECRAFT_IMPLEMENTADO.txt.
+
+4. Props e estruturas
+- Porta e alçapão abrem/fecham e movem também a colisão, liberando a passagem quando abertos.
+- Janela de vidro e cama são estruturas colocáveis; interagir com a cama define o ponto de retorno e permite dormir à noite conforme as regras existentes.
+- Fornalha é colocável, mantém entrada/combustível/progresso/saída e sua chama visual; minério, areia, comida e tronco têm receitas de processamento configuradas.
+- Estado, orientação e conteúdo da fornalha dos props colocados são gravados no perfil do mundo. O carregamento ignora dados inválidos, células ocupadas e versões antigas continuam sendo lidas.
+
+CONTROLES RELACIONADOS
+- E: abrir/fechar mochila/crafting.
+- F: interagir com a estrutura próxima (mesa, fornalha, porta, alçapão, cama).
+- Botão esquerdo: minerar/atacar conforme alvo e contexto.
+- Botão direito: usar o item selecionado na hotbar; blocos e props colocáveis usam esse fluxo.
+- Teclas 1–9: selecionar a hotbar.
+- Na fornalha, os botões do painel adicionam item fundível, combustível e recolhem saída; o progresso é exibido na tela.
+
+VALIDAÇÃO
+- Projeto validado pelo editor Godot em modo headless, sem erros de parse nos scripts do jogo.
+- A suíte terminou com 233 verificações: 231 passaram e 2 falharam nos checks legados de retarget de thigh dos avatares boy2/girl2; os rigs importados não expõem o osso esperado e o teste consulta o índice -1.
+- A suíte também imprime erros de índice de osso correspondentes a essa limitação preexistente.
+- Esta validação headless não substitui o teste visual do jogador na máquina-alvo, especialmente para leitura de céu, colisão dos props e renderização da fornalha.

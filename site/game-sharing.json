@@ -1,0 +1,18 @@
+{
+  "schemaVersion": 2,
+  "publicationOrigin": "https://bytecrafter-xfbvznbj.manus.game",
+  "title": "ByteCrafter",
+  "description": "Explore um mundo voxel aberto, sobreviva, minere e construa em primeira ou terceira pessoa. Coopere pela rede local na versão nativa do Godot.",
+  "defaultCaptions": {},
+  "assets": {
+    "favicon": {
+      "digest": "sha256:b409455b7ac85a89d0c85bf84fbc065ed65c31ddea4ccfcfc1367baacf823933",
+      "path": "share/b409455b7ac85a89d0c85bf84fbc065ed65c31ddea4ccfcfc1367baacf823933.png",
+      "mime": "image/png",
+      "width": 128,
+      "height": 128,
+      "sizeBytes": 1383,
+      "sourcePath": "assets/share/favicon.png"
+    }
+  }
+}
